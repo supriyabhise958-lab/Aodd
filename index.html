@@ -142,7 +142,6 @@
     </div>
 
     <script>
-        // --- Firebase Config ---
         const firebaseConfig = {
             apiKey: "AIzaSyDIMsFJKqHn-smyGErc9XyZPrM9ZL6UMTg",
             authDomain: "aod-e4fe4.firebaseapp.com",
@@ -161,7 +160,6 @@
         let waAutoMsg = localStorage.getItem('waMsg') || "Hello, I am outside for pickup!";
         const todayStr = new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(new Date());
 
-        // Navigation
         function toggleMenu(show) { document.getElementById('sidebar').classList.toggle('active', show); document.getElementById('overlay').style.display = show ? 'block' : 'none'; }
         function openModal(id) { 
             if(id === 'modal-edit') populateEditSelect(); 
@@ -178,18 +176,15 @@
             renderList(); 
         }
 
-        // Firebase Sync
         db.collection("students").onSnapshot((snapshot) => {
             students = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             renderList();
         });
 
-        // CRUD
         async function saveStudent() {
             const name = document.getElementById('addName').value;
             const days = Array.from(document.querySelectorAll('#addDaysGrid .selected')).map(el => el.innerText);
             if(!name || days.length === 0) return alert("Missing Name/Days");
-
             await db.collection("students").add({
                 name, time: document.getElementById('addTime').value,
                 days, loc: document.getElementById('addLoc').value,
@@ -221,7 +216,7 @@
                             <div class="action-icons">
                                 <i class="fas fa-phone-alt icon-btn" style="color:white;" onclick="window.location.href='tel:${s.phone}'"></i>
                                 <i class="fab fa-whatsapp icon-btn" style="color:#25D366;" onclick="window.open('https://wa.me/${s.phone}?text='+encodeURIComponent(waAutoMsg))"></i>
-                                <i class="fas fa-map-marker-alt icon-btn" style="color:#FFEB3B;" onclick="window.open('https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(s.loc))"></i>
+                                <i class="fas fa-map-marker-alt icon-btn" style="color:#FFEB3B;" onclick="window.open('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent('${s.loc}'))"></i>
                             </div>
                         ` : ''}
                         ${currentTab === 'cancel' ? `<button class="btn-top" style="color:green;" onclick="updateStatus('${s.id}', false)">RESET</button>` : ''}
@@ -275,4 +270,4 @@
         }
     </script>
 </body>
-</html>
+    </html>
