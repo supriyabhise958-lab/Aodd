@@ -1,0 +1,278 @@
+<meta name='viewport' content='width=device-width, initial-scale=1'/><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AOD Pickup Pro - Final Build</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Roboto', sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background-color: #F5F5F5; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+        /* UI Headers */
+        .top-bar { background-color: blue; height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; color: white; z-index: 1000; }
+        .circle { background: white; color: blue; width: 40px; height: 40px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: 900; font-size: 14px; }
+        .category-bar { background: white; height: 56px; display: flex; border-bottom: 1px solid #ddd; z-index: 900; }
+        .icon-item { flex: 1; display: flex; justify-content: center; align-items: center; cursor: pointer; position: relative; }
+        .icon-item i { color: #ccc; font-size: 24px; }
+        .icon-item.active i { color: blue; }
+        .icon-item.active::after { content: ''; position: absolute; bottom: 0; width: 50%; height: 3px; background: blue; }
+
+        /* Card Styles */
+        .content-container { flex: 1; overflow-y: auto; padding: 15px; }
+        .student-card { border-radius: 12px; padding: 16px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); position: relative; min-height: 125px; }
+        .pickup-card { background-color: blue; color: white; }
+        .nopickup-card { background-color: #E3F2FD; color: #1565C0; border: 1px solid #BBDEFB; }
+        .cancel-card { background-color: #D32F2F; color: white; }
+
+        .student-name { font-size: 18px; font-weight: bold; margin-bottom: 4px; }
+        .student-info { font-size: 13px; opacity: 0.9; margin-bottom: 8px; }
+        .day-display { font-size: 10px; background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 20px; display: inline-block; font-weight: bold; }
+
+        /* Buttons & Icons */
+        .btn-top { position: absolute; top: 12px; right: 12px; background: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .action-icons { margin-top: 15px; display: flex; gap: 20px; }
+        .icon-btn { font-size: 24px; cursor: pointer; }
+
+        /* Modals */
+        .modal-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 2000; transform: translateY(100%); transition: 0.4s ease; display: flex; flex-direction: column; }
+        .modal-screen.active { transform: translateY(0); }
+        .modal-header { background: blue; color: white; height: 56px; display: flex; align-items: center; padding: 0 16px; font-size: 18px; }
+        .modal-content { flex: 1; padding: 20px; overflow-y: auto; }
+
+        /* Form Elements */
+        .input-group { margin-bottom: 16px; }
+        .input-group label { display: block; font-size: 12px; color: blue; font-weight: bold; margin-bottom: 6px; }
+        .input-group input, .input-group select, .input-group textarea { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; }
+        .days-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .day-btn { background: #f0f0f0; border: 1px solid #ddd; padding: 8px; text-align: center; border-radius: 6px; font-size: 12px; cursor: pointer; color: #333; }
+        .day-btn.selected { background: blue; color: white; border-color: blue; }
+
+        /* Sidebar */
+        .sidebar { position: fixed; left: -280px; top: 0; width: 280px; height: 100%; background: white; z-index: 1500; transition: 0.3s; box-shadow: 5px 0 15px rgba(0,0,0,0.2); }
+        .sidebar.active { left: 0; }
+        .overlay { position: fixed; display: none; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1400; }
+        .menu-item { padding: 16px; border-bottom: 1px solid #eee; display: flex; align-items: center; cursor: pointer; }
+        .menu-item i { margin-right: 15px; color: blue; width: 20px; }
+    </style>
+</head>
+<body>
+
+    <div class="overlay" id="overlay" onclick="toggleMenu(false)"></div>
+
+    <header class="top-bar">
+        <div style="display:flex; align-items:center;">
+            <div class="circle">AOD</div>
+            <span style="margin-left:12px; font-size:18px;">pickup</span>
+        </div>
+        <i class="fas fa-ellipsis-v" onclick="toggleMenu(true)" style="cursor:pointer; padding: 10px;"></i>
+    </header>
+
+    <nav class="category-bar">
+        <div class="icon-item active" onclick="switchTab('pickup', 0)"><i class="fas fa-location-dot"></i></div>
+        <div class="icon-item" onclick="switchTab('nopickup', 1)"><i class="fas fa-location-dot"></i></div>
+        <div class="icon-item" onclick="switchTab('cancel', 2)"><i class="fas fa-ban"></i></div>
+    </nav>
+
+    <main class="content-container" id="main-content"></main>
+
+    <div class="sidebar" id="sidebar">
+        <div style="background:blue; color:white; padding:24px 16px; font-weight:bold; font-size:20px;">Menu Settings</div>
+        <div class="menu-item" onclick="openModal('modal-add')"><i class="fas fa-user-plus"></i> Student add detail</div>
+        <div class="menu-item" onclick="openModal('modal-edit')"><i class="fas fa-user-edit"></i> Student edit and delete</div>
+        <div class="menu-item" onclick="openModal('modal-automation')"><i class="fas fa-robot"></i> WhatsApp Automation</div>
+        <div class="menu-item" onclick="openModal('modal-report')"><i class="fas fa-file-pdf"></i> PDF Reports</div>
+    </div>
+
+    <div id="modal-add" class="modal-screen">
+        <div class="modal-header"><i class="fas fa-arrow-left" onclick="closeModal('modal-add')" style="margin-right:20px;"></i> Add New Student</div>
+        <div class="modal-content">
+            <div class="input-group"><label>Name</label><input type="text" id="addName"></div>
+            <div class="input-group"><label>Time</label><input type="time" id="addTime"></div>
+            <div class="input-group">
+                <label>Select Days</label>
+                <div class="days-grid" id="addDaysGrid">
+                    <div class="day-btn" onclick="toggleDay(this)">Mon</div><div class="day-btn" onclick="toggleDay(this)">Tue</div><div class="day-btn" onclick="toggleDay(this)">Wed</div>
+                    <div class="day-btn" onclick="toggleDay(this)">Thu</div><div class="day-btn" onclick="toggleDay(this)">Fri</div><div class="day-btn" onclick="toggleDay(this)">Sat</div>
+                    <div class="day-btn" onclick="toggleDay(this)">Sun</div>
+                </div>
+            </div>
+            <div class="input-group"><label>Location</label><input type="text" id="addLoc"></div>
+            <div class="input-group"><label>Phone</label><input type="tel" id="addPhone"></div>
+            <button onclick="saveStudent()" style="width:100%; padding:15px; background:blue; color:white; border:none; border-radius:8px; font-weight:bold;">SAVE STUDENT</button>
+        </div>
+    </div>
+
+    <div id="modal-edit" class="modal-screen">
+        <div class="modal-header"><i class="fas fa-arrow-left" onclick="closeModal('modal-edit')" style="margin-right:20px;"></i> Update/Delete</div>
+        <div class="modal-content">
+            <div class="input-group"><label>Select Student</label><select id="editSelect" onchange="loadStudentData()"><option value="">-- Choose --</option></select></div>
+            <div id="editFields" style="display:none;">
+                <div class="input-group"><label>Name</label><input type="text" id="editName"></div>
+                <div class="input-group">
+                    <label>Edit Days</label>
+                    <div class="days-grid" id="editDaysGrid">
+                        <div class="day-btn" onclick="toggleDay(this)">Mon</div><div class="day-btn" onclick="toggleDay(this)">Tue</div><div class="day-btn" onclick="toggleDay(this)">Wed</div>
+                        <div class="day-btn" onclick="toggleDay(this)">Thu</div><div class="day-btn" onclick="toggleDay(this)">Fri</div><div class="day-btn" onclick="toggleDay(this)">Sat</div>
+                        <div class="day-btn" onclick="toggleDay(this)">Sun</div>
+                    </div>
+                </div>
+                <div class="input-group"><label>Location</label><input type="text" id="editLoc"></div>
+                <button onclick="updateStudent()" style="width:100%; padding:15px; background:green; color:white; border:none; border-radius:8px; font-weight:bold;">UPDATE</button>
+                <button onclick="deleteStudent()" style="width:100%; padding:12px; background:#FFEBEE; color:red; border:1px solid red; border-radius:8px; margin-top:10px; font-weight:bold;">DELETE</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-automation" class="modal-screen">
+        <div class="modal-header"><i class="fas fa-arrow-left" onclick="closeModal('modal-automation')" style="margin-right:20px;"></i> Automation</div>
+        <div class="modal-content">
+            <div class="input-group"><label>WhatsApp Message</label><textarea id="autoMsg" style="height:120px;"></textarea></div>
+            <button onclick="saveAutomation()" style="width:100%; padding:15px; background:blue; color:white; border:none; border-radius:8px; font-weight:bold;">SAVE MESSAGE</button>
+        </div>
+    </div>
+
+    <div id="modal-report" class="modal-screen">
+        <div class="modal-header"><i class="fas fa-arrow-left" onclick="closeModal('modal-report')" style="margin-right:20px;"></i> Live Report</div>
+        <div class="modal-content" id="reportContent"></div>
+    </div>
+
+    <script>
+        // --- Firebase Config ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDIMsFJKqHn-smyGErc9XyZPrM9ZL6UMTg",
+            authDomain: "aod-e4fe4.firebaseapp.com",
+            projectId: "aod-e4fe4",
+            storageBucket: "aod-e4fe4.firebasestorage.app",
+            messagingSenderId: "323570808577",
+            appId: "1:323570808577:web:5d5002a20e0dfc651a4d00",
+            measurementId: "G-XP4BWDN3PL"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        let students = [];
+        let currentTab = 'pickup';
+        let waAutoMsg = localStorage.getItem('waMsg') || "Hello, I am outside for pickup!";
+        const todayStr = new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(new Date());
+
+        // Navigation
+        function toggleMenu(show) { document.getElementById('sidebar').classList.toggle('active', show); document.getElementById('overlay').style.display = show ? 'block' : 'none'; }
+        function openModal(id) { 
+            if(id === 'modal-edit') populateEditSelect(); 
+            if(id === 'modal-automation') document.getElementById('autoMsg').value = waAutoMsg;
+            if(id === 'modal-report') generateReport();
+            document.getElementById(id).classList.add('active'); 
+            toggleMenu(false); 
+        }
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+        function toggleDay(btn) { btn.classList.toggle('selected'); }
+        function switchTab(tab, index) { 
+            currentTab = tab; 
+            document.querySelectorAll('.icon-item').forEach((el, i) => el.classList.toggle('active', i === index)); 
+            renderList(); 
+        }
+
+        // Firebase Sync
+        db.collection("students").onSnapshot((snapshot) => {
+            students = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            renderList();
+        });
+
+        // CRUD
+        async function saveStudent() {
+            const name = document.getElementById('addName').value;
+            const days = Array.from(document.querySelectorAll('#addDaysGrid .selected')).map(el => el.innerText);
+            if(!name || days.length === 0) return alert("Missing Name/Days");
+
+            await db.collection("students").add({
+                name, time: document.getElementById('addTime').value,
+                days, loc: document.getElementById('addLoc').value,
+                phone: document.getElementById('addPhone').value, isCancelled: false
+            });
+            closeModal('modal-add');
+            document.getElementById('addName').value = ""; document.querySelectorAll('#addDaysGrid .selected').forEach(el => el.classList.remove('selected'));
+        }
+
+        function renderList() {
+            const container = document.getElementById('main-content');
+            container.innerHTML = "";
+            students.forEach(s => {
+                const isToday = s.days.includes(todayStr);
+                let show = false, cardClass = "";
+                if(currentTab === 'pickup' && isToday && !s.isCancelled) { show = true; cardClass = "pickup-card"; }
+                if(currentTab === 'nopickup' && !isToday && !s.isCancelled) { show = true; cardClass = "nopickup-card"; }
+                if(currentTab === 'cancel' && s.isCancelled) { show = true; cardClass = "cancel-card"; }
+
+                if(show) {
+                    const card = document.createElement('div');
+                    card.className = `student-card ${cardClass}`;
+                    card.innerHTML = `
+                        <div class="student-name">${s.name}</div>
+                        <div class="student-info"><i class="far fa-clock"></i> ${s.time} | ${s.loc}</div>
+                        <div class="day-display">${s.days.join(', ')}</div>
+                        ${currentTab === 'pickup' ? `
+                            <button class="btn-top" style="color:red;" onclick="updateStatus('${s.id}', true)">CANCEL</button>
+                            <div class="action-icons">
+                                <i class="fas fa-phone-alt icon-btn" style="color:white;" onclick="window.location.href='tel:${s.phone}'"></i>
+                                <i class="fab fa-whatsapp icon-btn" style="color:#25D366;" onclick="window.open('https://wa.me/${s.phone}?text='+encodeURIComponent(waAutoMsg))"></i>
+                                <i class="fas fa-map-marker-alt icon-btn" style="color:#FFEB3B;" onclick="window.open('https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(s.loc))"></i>
+                            </div>
+                        ` : ''}
+                        ${currentTab === 'cancel' ? `<button class="btn-top" style="color:green;" onclick="updateStatus('${s.id}', false)">RESET</button>` : ''}
+                    `;
+                    container.appendChild(card);
+                }
+            });
+        }
+
+        async function updateStatus(id, status) { await db.collection("students").doc(id).update({ isCancelled: status }); }
+        
+        function populateEditSelect() { 
+            const sel = document.getElementById('editSelect');
+            sel.innerHTML = '<option value="">-- Choose --</option>' + students.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+            document.getElementById('editFields').style.display = 'none';
+        }
+
+        function loadStudentData() {
+            const s = students.find(x => x.id == document.getElementById('editSelect').value);
+            if(s) {
+                document.getElementById('editFields').style.display = 'block';
+                document.getElementById('editName').value = s.name;
+                document.getElementById('editLoc').value = s.loc;
+                document.querySelectorAll('#editDaysGrid .day-btn').forEach(btn => btn.classList.toggle('selected', s.days.includes(btn.innerText)));
+            }
+        }
+
+        async function updateStudent() {
+            const id = document.getElementById('editSelect').value;
+            const days = Array.from(document.querySelectorAll('#editDaysGrid .selected')).map(el => el.innerText);
+            await db.collection("students").doc(id).update({ name: document.getElementById('editName').value, loc: document.getElementById('editLoc').value, days: days });
+            closeModal('modal-edit');
+        }
+
+        async function deleteStudent() {
+            if(confirm("Delete Student?")) { await db.collection("students").doc(document.getElementById('editSelect').value).delete(); closeModal('modal-edit'); }
+        }
+
+        function saveAutomation() { waAutoMsg = document.getElementById('autoMsg').value; localStorage.setItem('waMsg', waAutoMsg); alert("Saved!"); closeModal('modal-automation'); }
+
+        function generateReport() {
+            const active = students.filter(s => s.days.includes(todayStr) && !s.isCancelled);
+            const cancelled = students.filter(s => s.isCancelled);
+            document.getElementById('reportContent').innerHTML = `
+                <div style="background:#f9f9f9; padding:15px; border-radius:10px; border-left:5px solid blue; margin-bottom:20px;">
+                    <h3>Today Summary (${todayStr})</h3>
+                    <p>Success: ${active.length}</p>
+                    <p style="color:red">Cancelled: ${cancelled.length}</p>
+                </div>
+                <button onclick="window.print()" style="width:100%; padding:15px; background:blue; color:white; border:none; border-radius:8px; font-weight:bold;">PRINT TO PDF</button>`;
+        }
+    </script>
+</body>
+</html>
