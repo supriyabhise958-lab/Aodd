@@ -1,9 +1,9 @@
-  <meta name='viewport' content='width=device-width, initial-scale=1'/><!DOCTYPE html>
+<meta name='viewport' content='width=device-width, initial-scale=1'/><!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AOD Pickup Pro - Updated</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AOD Pickup Pro</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
@@ -12,6 +12,12 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Roboto', sans-serif; -webkit-tap-highlight-color: transparent; }
         body { background-color: #F5F5F5; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+        /* Password Overlay Screen */
+        #password-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 5000; display: none; flex-direction: column; align-items: center; justify-content: center; }
+        #password-screen h2 { color: blue; margin-bottom: 20px; font-size: 20px; }
+        #passInput { width: 80%; max-width: 300px; padding: 15px; border: 2px solid blue; border-radius: 8px; text-align: center; font-size: 24px; letter-spacing: 10px; margin-bottom: 20px; outline: none; }
+        .pass-btn { width: 80%; max-width: 300px; padding: 15px; background: blue; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; }
 
         /* UI Headers */
         .top-bar { background-color: blue; height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; color: white; z-index: 1000; flex-shrink: 0; }
@@ -36,26 +42,31 @@
         .student-info { font-size: 13px; opacity: 0.9; margin-bottom: 8px; }
         .day-display { font-size: 10px; background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 20px; display: inline-block; font-weight: bold; }
 
-        /* Buttons & Icons */
-        .btn-top { position: absolute; top: 12px; right: 12px; background: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .action-icons { margin-top: 15px; display: flex; gap: 20px; }
-        .icon-btn { font-size: 24px; cursor: pointer; }
-
-        /* Modals */
+        /* Modals & Sidebar */
         .modal-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 2000; transform: translateY(100%); transition: 0.4s ease; display: flex; flex-direction: column; }
         .modal-screen.active { transform: translateY(0); }
         .modal-header { background: blue; color: white; height: 56px; display: flex; align-items: center; padding: 0 16px; font-size: 18px; }
         .modal-content { flex: 1; padding: 20px; overflow-y: auto; }
 
-        /* Sidebar */
         .sidebar { position: fixed; left: -280px; top: 0; width: 280px; height: 100%; background: white; z-index: 1500; transition: 0.3s; box-shadow: 5px 0 15px rgba(0,0,0,0.2); }
         .sidebar.active { left: 0; }
         .overlay { position: fixed; display: none; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1400; }
         .menu-item { padding: 16px; border-bottom: 1px solid #eee; display: flex; align-items: center; cursor: pointer; }
         .menu-item i { margin-right: 15px; color: blue; width: 20px; }
+        
+        .btn-top { position: absolute; top: 12px; right: 12px; background: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; }
+        .action-icons { margin-top: 15px; display: flex; gap: 20px; }
+        .icon-btn { font-size: 24px; cursor: pointer; }
     </style>
 </head>
 <body>
+
+    <div id="password-screen">
+        <h2>Enter the Password</h2>
+        <input type="password" id="passInput" maxlength="6" placeholder="******" inputmode="numeric">
+        <button class="pass-btn" onclick="verifyPassword()">SUBMIT</button>
+        <button class="pass-btn" onclick="closePassScreen()" style="background:#ccc; margin-top:10px;">CANCEL</button>
+    </div>
 
     <div class="overlay" id="overlay" onclick="toggleMenu(false)"></div>
 
@@ -64,24 +75,15 @@
             <div class="circle">AOD</div>
             <span style="margin-left:12px; font-size:18px;">pickup</span>
         </div>
-        <i class="fas fa-ellipsis-v" onclick="checkPassword()" style="cursor:pointer; padding: 10px;"></i>
+        <i class="fas fa-ellipsis-v" onclick="showPassScreen()" style="cursor:pointer; padding: 10px;"></i>
     </header>
 
     <main class="content-container" id="main-content"></main>
 
     <nav class="category-bar">
-        <div class="icon-item active" onclick="switchTab('pickup', 0)">
-            <i class="fas fa-location-dot"></i>
-            <span>Pickup</span>
-        </div>
-        <div class="icon-item" onclick="switchTab('nopickup', 1)">
-            <i class="fas fa-location-dot"></i>
-            <span>No Pickup</span>
-        </div>
-        <div class="icon-item" onclick="switchTab('cancel', 2)">
-            <i class="fas fa-ban"></i>
-            <span>Cancel</span>
-        </div>
+        <div class="icon-item active" onclick="switchTab('pickup', 0)"><i class="fas fa-location-dot"></i><span>Pickup</span></div>
+        <div class="icon-item" onclick="switchTab('nopickup', 1)"><i class="fas fa-location-dot"></i><span>No Pickup</span></div>
+        <div class="icon-item" onclick="switchTab('cancel', 2)"><i class="fas fa-ban"></i><span>Cancel</span></div>
     </nav>
 
     <div class="sidebar" id="sidebar">
@@ -95,56 +97,38 @@
     <div id="modal-add" class="modal-screen">
         <div class="modal-header"><i class="fas fa-arrow-left" onclick="closeModal('modal-add')" style="margin-right:20px;"></i> Add New Student</div>
         <div class="modal-content">
-            <div style="margin-bottom:16px;"><label style="display:block; font-size:12px; color:blue; font-weight:bold; margin-bottom:6px;">Name</label><input type="text" id="addName" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px;"></div>
-            <div style="margin-bottom:16px;"><label style="display:block; font-size:12px; color:blue; font-weight:bold; margin-bottom:6px;">Time</label><input type="time" id="addTime" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px;"></div>
-            <div style="margin-bottom:16px;">
-                <label style="display:block; font-size:12px; color:blue; font-weight:bold; margin-bottom:6px;">Select Days</label>
-                <div class="days-grid" id="addDaysGrid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
-                    <div class="day-btn" onclick="toggleDay(this)" style="background:#f0f0f0; border:1px solid #ddd; padding:8px; text-align:center; border-radius:6px; font-size:12px; cursor:pointer;">Mon</div><div class="day-btn" onclick="toggleDay(this)" style="background:#f0f0f0; border:1px solid #ddd; padding:8px; text-align:center; border-radius:6px; font-size:12px; cursor:pointer;">Tue</div><div class="day-btn" onclick="toggleDay(this)" style="background:#f0f0f0; border:1px solid #ddd; padding:8px; text-align:center; border-radius:6px; font-size:12px; cursor:pointer;">Wed</div>
-                    <div class="day-btn" onclick="toggleDay(this)" style="background:#f0f0f0; border:1px solid #ddd; padding:8px; text-align:center; border-radius:6px; font-size:12px; cursor:pointer;">Thu</div><div class="day-btn" onclick="toggleDay(this)" style="background:#f0f0f0; border:1px solid #ddd; padding:8px; text-align:center; border-radius:6px; font-size:12px; cursor:pointer;">Fri</div><div class="day-btn" onclick="toggleDay(this)" style="background:#f0f0f0; border:1px solid #ddd; padding:8px; text-align:center; border-radius:6px; font-size:12px; cursor:pointer;">Sat</div>
-                    <div class="day-btn" onclick="toggleDay(this)" style="background:#f0f0f0; border:1px solid #ddd; padding:8px; text-align:center; border-radius:6px; font-size:12px; cursor:pointer;">Sun</div>
-                </div>
-            </div>
-            <div style="margin-bottom:16px;"><label style="display:block; font-size:12px; color:blue; font-weight:bold; margin-bottom:6px;">Location</label><input type="text" id="addLoc" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px;"></div>
-            <div style="margin-bottom:16px;"><label style="display:block; font-size:12px; color:blue; font-weight:bold; margin-bottom:6px;">Phone</label><input type="tel" id="addPhone" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px;"></div>
-            <button onclick="saveStudent()" style="width:100%; padding:15px; background:blue; color:white; border:none; border-radius:8px; font-weight:bold;">SAVE STUDENT</button>
+            <input type="text" id="addName" placeholder="Name" style="width:100%; padding:12px; margin-bottom:10px; border-radius:8px; border:1px solid #ddd;">
+            <input type="time" id="addTime" style="width:100%; padding:12px; margin-bottom:10px; border-radius:8px; border:1px solid #ddd;">
+            <input type="text" id="addLoc" placeholder="Location" style="width:100%; padding:12px; margin-bottom:10px; border-radius:8px; border:1px solid #ddd;">
+            <input type="tel" id="addPhone" placeholder="Phone" style="width:100%; padding:12px; margin-bottom:10px; border-radius:8px; border:1px solid #ddd;">
+            <button onclick="saveStudent()" style="width:100%; padding:15px; background:blue; color:white; border:none; border-radius:8px;">SAVE</button>
         </div>
     </div>
 
-    <div id="modal-edit" class="modal-screen">
-        <div class="modal-header"><i class="fas fa-arrow-left" onclick="closeModal('modal-edit')" style="margin-right:20px;"></i> Update/Delete</div>
-        <div class="modal-content">
-            <div style="margin-bottom:16px;"><label>Select Student</label><select id="editSelect" onchange="loadStudentData()" style="width:100%; padding:12px; border-radius:8px;"><option value="">-- Choose --</option></select></div>
-            <div id="editFields" style="display:none;">
-                <div style="margin-bottom:16px;"><label>Name</label><input type="text" id="editName" style="width:100%; padding:12px; border-radius:8px;"></div>
-                <div style="margin-bottom:16px;"><label>Location</label><input type="text" id="editLoc" style="width:100%; padding:12px; border-radius:8px;"></div>
-                <button onclick="updateStudent()" style="width:100%; padding:15px; background:green; color:white; border:none; border-radius:8px; font-weight:bold;">UPDATE</button>
-                <button onclick="deleteStudent()" style="width:100%; padding:12px; background:#FFEBEE; color:red; border:1px solid red; border-radius:8px; margin-top:10px; font-weight:bold;">DELETE</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="modal-automation" class="modal-screen">
-        <div class="modal-header"><i class="fas fa-arrow-left" onclick="closeModal('modal-automation')" style="margin-right:20px;"></i> Automation</div>
-        <div class="modal-content">
-            <div style="margin-bottom:16px;"><label>WhatsApp Message</label><textarea id="autoMsg" style="width:100%; height:120px; padding:12px; border-radius:8px;"></textarea></div>
-            <button onclick="saveAutomation()" style="width:100%; padding:15px; background:blue; color:white; border:none; border-radius:8px; font-weight:bold;">SAVE MESSAGE</button>
-        </div>
-    </div>
-
-    <div id="modal-report" class="modal-screen">
-        <div class="modal-header"><i class="fas fa-arrow-left" onclick="closeModal('modal-report')" style="margin-right:20px;"></i> Live Report</div>
-        <div class="modal-content" id="reportContent"></div>
-    </div>
+    <div id="modal-edit" class="modal-screen"><div class="modal-header"><i class="fas fa-arrow-left" onclick="closeModal('modal-edit')"></i> Edit</div><div class="modal-content"><select id="editSelect" onchange="loadStudentData()" style="width:100%; padding:12px;"><option>-- Choose --</option></select><div id="editFields" style="display:none; margin-top:15px;"><input type="text" id="editName" style="width:100%; padding:12px; margin-bottom:10px;"><button onclick="updateStudent()" style="width:100%; padding:15px; background:green; color:white;">UPDATE</button><button onclick="deleteStudent()" style="width:100%; padding:12px; color:red; margin-top:10px;">DELETE</button></div></div></div>
+    <div id="modal-automation" class="modal-screen"><div class="modal-header"><i class="fas fa-arrow-left" onclick="closeModal('modal-automation')"></i> Automation</div><div class="modal-content"><textarea id="autoMsg" style="width:100%; height:120px;"></textarea><button onclick="saveAutomation()" style="width:100%; padding:15px; background:blue; color:white;">SAVE</button></div></div>
+    <div id="modal-report" class="modal-screen"><div class="modal-header"><i class="fas fa-arrow-left" onclick="closeModal('modal-report')"></i> Live Report</div><div class="modal-content" id="reportContent"></div></div>
 
     <script>
-        // Password Protection
-        function checkPassword() {
-            const pass = prompt("Enter 6-digit Password:");
+        // Password Protection Logic
+        function showPassScreen() {
+            document.getElementById('password-screen').style.display = 'flex';
+            document.getElementById('passInput').value = '';
+            document.getElementById('passInput').focus();
+        }
+
+        function closePassScreen() {
+            document.getElementById('password-screen').style.display = 'none';
+        }
+
+        function verifyPassword() {
+            const pass = document.getElementById('passInput').value;
             if (pass === "992302") {
+                closePassScreen();
                 toggleMenu(true);
-            } else if (pass !== null) {
+            } else {
                 alert("Wrong Password!");
+                document.getElementById('passInput').value = '';
             }
         }
 
@@ -166,11 +150,7 @@
         let waAutoMsg = localStorage.getItem('waMsg') || "Hello, I am outside for pickup!";
         const todayStr = new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(new Date());
 
-        function toggleMenu(show) { 
-            document.getElementById('sidebar').classList.toggle('active', show); 
-            document.getElementById('overlay').style.display = show ? 'block' : 'none'; 
-        }
-        
+        function toggleMenu(show) { document.getElementById('sidebar').classList.toggle('active', show); document.getElementById('overlay').style.display = show ? 'block' : 'none'; }
         function openModal(id) { 
             if(id === 'modal-edit') populateEditSelect(); 
             if(id === 'modal-automation') document.getElementById('autoMsg').value = waAutoMsg;
@@ -178,14 +158,7 @@
             document.getElementById(id).classList.add('active'); 
             toggleMenu(false); 
         }
-        
         function closeModal(id) { document.getElementById(id).classList.remove('active'); }
-        function toggleDay(btn) { 
-            btn.classList.toggle('selected');
-            btn.style.background = btn.classList.contains('selected') ? 'blue' : '#f0f0f0';
-            btn.style.color = btn.classList.contains('selected') ? 'white' : '#333';
-        }
-
         function switchTab(tab, index) { 
             currentTab = tab; 
             document.querySelectorAll('.icon-item').forEach((el, i) => el.classList.toggle('active', i === index)); 
@@ -199,20 +172,13 @@
 
         async function saveStudent() {
             const name = document.getElementById('addName').value;
-            const days = Array.from(document.querySelectorAll('#addDaysGrid .selected')).map(el => el.innerText);
-            if(!name || days.length === 0) return alert("Missing Name/Days");
+            if(!name) return alert("Enter Name");
             await db.collection("students").add({
                 name, time: document.getElementById('addTime').value,
-                days, loc: document.getElementById('addLoc').value,
+                days: [todayStr], loc: document.getElementById('addLoc').value,
                 phone: document.getElementById('addPhone').value, isCancelled: false
             });
             closeModal('modal-add');
-            document.getElementById('addName').value = ""; 
-            document.querySelectorAll('#addDaysGrid .selected').forEach(el => {
-                el.classList.remove('selected');
-                el.style.background = '#f0f0f0';
-                el.style.color = '#333';
-            });
         }
 
         function renderList() {
@@ -231,13 +197,12 @@
                     card.innerHTML = `
                         <div class="student-name">${s.name}</div>
                         <div class="student-info"><i class="far fa-clock"></i> ${s.time} | ${s.loc}</div>
-                        <div class="day-display">${s.days.join(', ')}</div>
                         ${currentTab === 'pickup' ? `
                             <button class="btn-top" style="color:red;" onclick="updateStatus('${s.id}', true)">CANCEL</button>
                             <div class="action-icons">
-                                <i class="fas fa-phone-alt icon-btn" style="color:white;" onclick="window.location.href='tel:${s.phone}'"></i>
-                                <i class="fab fa-whatsapp icon-btn" style="color:#25D366;" onclick="window.open('https://wa.me/${s.phone}?text='+encodeURIComponent(waAutoMsg))"></i>
-                                <i class="fas fa-map-marker-alt icon-btn" style="color:#FFEB3B;" onclick="window.open('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent('${s.loc}'))"></i>
+                                <i class="fas fa-phone-alt icon-btn" onclick="window.location.href='tel:${s.phone}'"></i>
+                                <i class="fab fa-whatsapp icon-btn" onclick="window.open('https://wa.me/${s.phone}?text='+encodeURIComponent(waAutoMsg))"></i>
+                                <i class="fas fa-map-marker-alt icon-btn" onclick="window.open('https://www.google.com/maps/search/?api=1&query='+encodeURIComponent('${s.loc}'))"></i>
                             </div>
                         ` : ''}
                         ${currentTab === 'cancel' ? `<button class="btn-top" style="color:green;" onclick="updateStatus('${s.id}', false)">RESET</button>` : ''}
@@ -248,48 +213,12 @@
         }
 
         async function updateStatus(id, status) { await db.collection("students").doc(id).update({ isCancelled: status }); }
-        
-        function populateEditSelect() { 
-            const sel = document.getElementById('editSelect');
-            sel.innerHTML = '<option value="">-- Choose --</option>' + students.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-            document.getElementById('editFields').style.display = 'none';
-        }
-
-        function loadStudentData() {
-            const s = students.find(x => x.id == document.getElementById('editSelect').value);
-            if(s) {
-                document.getElementById('editFields').style.display = 'block';
-                document.getElementById('editName').value = s.name;
-                document.getElementById('editLoc').value = s.loc;
-            }
-        }
-
-        async function updateStudent() {
-            const id = document.getElementById('editSelect').value;
-            await db.collection("students").doc(id).update({ 
-                name: document.getElementById('editName').value, 
-                loc: document.getElementById('editLoc').value 
-            });
-            closeModal('modal-edit');
-        }
-
-        async function deleteStudent() {
-            if(confirm("Delete Student?")) { await db.collection("students").doc(document.getElementById('editSelect').value).delete(); closeModal('modal-edit'); }
-        }
-
+        function populateEditSelect() { document.getElementById('editSelect').innerHTML = '<option>-- Choose --</option>' + students.map(s => `<option value="${s.id}">${s.name}</option>`).join(''); }
+        function loadStudentData() { const s = students.find(x => x.id == document.getElementById('editSelect').value); if(s) { document.getElementById('editFields').style.display = 'block'; document.getElementById('editName').value = s.name; } }
+        async function updateStudent() { await db.collection("students").doc(document.getElementById('editSelect').value).update({ name: document.getElementById('editName').value }); closeModal('modal-edit'); }
+        async function deleteStudent() { if(confirm("Delete?")) { await db.collection("students").doc(document.getElementById('editSelect').value).delete(); closeModal('modal-edit'); } }
         function saveAutomation() { waAutoMsg = document.getElementById('autoMsg').value; localStorage.setItem('waMsg', waAutoMsg); alert("Saved!"); closeModal('modal-automation'); }
-
-        function generateReport() {
-            const active = students.filter(s => s.days.includes(todayStr) && !s.isCancelled);
-            const cancelled = students.filter(s => s.isCancelled);
-            document.getElementById('reportContent').innerHTML = `
-                <div style="background:#f9f9f9; padding:15px; border-radius:10px; border-left:5px solid blue; margin-bottom:20px;">
-                    <h3>Today Summary (${todayStr})</h3>
-                    <p>Success: ${active.length}</p>
-                    <p style="color:red">Cancelled: ${cancelled.length}</p>
-                </div>
-                <button onclick="window.print()" style="width:100%; padding:15px; background:blue; color:white; border:none; border-radius:8px; font-weight:bold;">PRINT TO PDF</button>`;
-        }
+        function generateReport() { document.getElementById('reportContent').innerHTML = `<h3>Today Summary</h3><p>Success: ${students.filter(s => s.days.includes(todayStr) && !s.isCancelled).length}</p>`; }
     </script>
 </body>
 </html>
